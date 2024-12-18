@@ -1,0 +1,31 @@
+name: meta_batida
+description: "A Flutter project for image manipulation and sharing."
+publish_to: "none"
+
+version: 1.0.0+1
+
+environment:
+  sdk: ">=3.0.0 <4.0.0"
+
+dependencies:
+  flutter:
+    sdk: flutter
+  image_picker: ^1.0.7 # Captura e seleção de imagens
+  path_provider: ^2.1.2 # Acesso ao diretório temporário
+  share_plus: ^7.2.2 # Compartilhamento de arquivos
+  image: ^3.0.2 # Manipulação de imagens (resize, merge)
+  cupertino_icons: ^1.0.8 # Ícones no estilo iOS
+
+dev_dependencies:
+  flutter_test:
+    sdk: flutter
+  flutter_lints: ^4.0.0
+
+flutter:
+  uses-material-design: true
+
+  # Adicione os caminhos dos assets necessários
+  assets:
+    - assets/self.jpeg
+    - assets/moldura.png
+    - assets/medalha10km.png

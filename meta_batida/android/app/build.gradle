@@ -1,0 +1,53 @@
+plugins {
+    id "com.android.application"
+    id "kotlin-android"
+    // O Flutter Gradle Plugin deve ser aplicado após os plugins Android e Kotlin.
+    id "dev.flutter.flutter-gradle-plugin"
+}
+
+android {
+    namespace = "com.example.meta_batida"
+    compileSdk = 34 // Atualize explicitamente para a última versão disponível
+
+    ndkVersion = flutter.ndkVersion
+
+    compileOptions {
+        sourceCompatibility = JavaVersion.VERSION_1_8
+        targetCompatibility = JavaVersion.VERSION_1_8
+    }
+
+    kotlinOptions {
+        jvmTarget = "1.8"
+    }
+
+    defaultConfig {
+        applicationId = "com.example.meta_batida"
+        minSdk = 21 // Versão mínima compatível com Flutter
+        targetSdk = 34 // Alinhado com compileSdk
+        versionCode = 1
+        versionName = "1.0"
+    }
+
+    buildTypes {
+    release {
+        // Ativar minifyEnabled para usar shrinkResources
+        minifyEnabled true
+        shrinkResources true
+        proguardFiles getDefaultProguardFile('proguard-android-optimize.txt'), 'proguard-rules.pro'
+    }
+    debug {
+        // Garanta que o build de debug não está tentando fazer shrink
+        minifyEnabled false
+        shrinkResources false
+    }
+}
+
+}
+
+flutter {
+    source = "../.."
+}
+
+dependencies {
+    implementation "org.jetbrains.kotlin:kotlin-stdlib:1.9.10" // Kotlin explicitamente definido
+}
