@@ -35,16 +35,15 @@ class _PhotoFramePageState extends State<PhotoFramePage> {
   File? _selfieImage;
   final ImagePicker _picker = ImagePicker();
 
-  final String _defaultSelfiePath = 'assets/self.jpeg';
+  final String _defaultSelfiePath = 'assets/self.jpg';
   final String _molduraPath = 'assets/moldura.png';
-  final String _medalhaPath = 'assets/medalha10km.png';
+  final String _medalhaPath = 'assets/medalha20km.png';
 
   double _offsetX = 0.0; // Posição inicial X
   double _offsetY = 0.0; // Posição inicial Y
   double _selfieSize = 648.0; // Tamanho inicial da selfie
-  bool _isDragging = false;
-  double _scale = 1.0; // Fator de escala para o zoom
-  double _previousScale = 1.0; // Escala anterior ao gesto de zoom
+  double _scale = 1.0; // Escala inicial
+  double _previousScale = 1.0;
 
   Future<void> _pickImage(ImageSource source) async {
     final XFile? pickedFile = await _picker.pickImage(source: source);
@@ -65,18 +64,15 @@ class _PhotoFramePageState extends State<PhotoFramePage> {
   }
 
   void _adjustPosition(double deltaX, double deltaY) {
-    final canvasSize = MediaQuery.of(context).size.width;
     setState(() {
-      _offsetX = (_offsetX + deltaX).clamp(0.0, canvasSize - _selfieSize);
-      _offsetY = (_offsetY + deltaY).clamp(0.0, canvasSize - _selfieSize);
+      _offsetX += deltaX;
+      _offsetY += deltaY;
     });
   }
 
-  void _adjustSize(double scaleChange) {
-    final canvasSize = MediaQuery.of(context).size.width;
+  void _adjustScale(double scaleChange) {
     setState(() {
-      _selfieSize = (_selfieSize * scaleChange).clamp(100.0, canvasSize);
-      _centerSelfie(); // Reposiciona ao redimensionar
+      _scale = (_scale * scaleChange).clamp(0.5, 3.0);
     });
   }
 
@@ -102,14 +98,13 @@ class _PhotoFramePageState extends State<PhotoFramePage> {
     img.fill(finalImage, img.getColor(255, 255, 255));
 
     final img.Image resizedSelfie = img.copyResize(selfie,
-        width: _selfieSize.toInt(), height: _selfieSize.toInt());
+        width: (_selfieSize * _scale).toInt(),
+        height: (_selfieSize * _scale).toInt());
     img.copyInto(finalImage, resizedSelfie,
         dstX: _offsetX.toInt(), dstY: _offsetY.toInt());
 
-    // A moldura deve cobrir toda a imagem
     img.copyInto(finalImage, moldura, dstX: 0, dstY: 0);
 
-    // A medalha deve ser colocada de maneira que não ultrapasse os limites
     final img.Image resizedMedalha =
         img.copyResize(medalha, width: 1000, height: 1000);
     img.copyInto(finalImage, resizedMedalha, dstX: 100, dstY: 800);
@@ -142,42 +137,6 @@ class _PhotoFramePageState extends State<PhotoFramePage> {
         text: "Confira minha montagem!");
   }
 
-  void _moveSelfieLeft() {
-    setState(() {
-      _offsetX -= 10.0;
-    });
-  }
-
-  void _moveSelfieRight() {
-    setState(() {
-      _offsetX += 10.0;
-    });
-  }
-
-  void _moveSelfieUp() {
-    setState(() {
-      _offsetY -= 10.0;
-    });
-  }
-
-  void _moveSelfieDown() {
-    setState(() {
-      _offsetY += 10.0;
-    });
-  }
-
-  void _increaseSelfieSize() {
-    setState(() {
-      _selfieSize += 10.0; // Aumenta o tamanho da selfie
-    });
-  }
-
-  void _decreaseSelfieSize() {
-    setState(() {
-      _selfieSize -= 10.0; // Diminui o tamanho da selfie
-    });
-  }
-
   @override
   Widget build(BuildContext context) {
     final canvasSize = MediaQuery.of(context).size.width;
@@ -191,43 +150,46 @@ class _PhotoFramePageState extends State<PhotoFramePage> {
         children: [
           Expanded(
             child: Center(
-              child: Container(
-                width: canvasSize,
-                height: canvasSize,
-                color: Colors.white,
-                child: Stack(
-                  children: [
-                    Positioned(
-                      top: _offsetY,
-                      left: _offsetX,
-                      child: AnimatedContainer(
-                        duration: const Duration(milliseconds: 100),
-                        decoration: BoxDecoration(
-                          border: _isDragging
-                              ? Border.all(color: Colors.blueAccent, width: 4)
-                              : null,
+              child: GestureDetector(
+                onScaleStart: (details) {
+                  _previousScale = _scale;
+                },
+                onScaleUpdate: (details) {
+                  setState(() {
+                    _scale = (_previousScale * details.scale).clamp(0.5, 3.0);
+                    _offsetX += details.focalPointDelta.dx;
+                    _offsetY += details.focalPointDelta.dy;
+                  });
+                },
+                child: Container(
+                  width: canvasSize,
+                  height: canvasSize,
+                  color: Colors.white,
+                  child: Stack(
+                    children: [
+                      Positioned(
+                        top: _offsetY,
+                        left: _offsetX,
+                        child: Transform.scale(
+                          scale: _scale,
+                          child: _selfieImage != null
+                              ? Image.file(_selfieImage!, fit: BoxFit.fill)
+                              : Image.asset(_defaultSelfiePath,
+                                  fit: BoxFit.fill),
                         ),
-                        width: _selfieSize,
-                        height: _selfieSize,
-                        child: _selfieImage != null
-                            ? Image.file(_selfieImage!, fit: BoxFit.fill)
-                            : Image.asset(_defaultSelfiePath,
-                                fit: BoxFit.cover),
                       ),
-                    ),
-                    Positioned.fill(
-                      child: Image.asset(_molduraPath, fit: BoxFit.cover),
-                    ),
-                    Positioned(
-                      // bottom: 20,
-                      // left: 20,
-                      child: SizedBox(
-                        width: canvasSize * 1,
-                        height: canvasSize * 1.3,
-                        child: Image.asset(_medalhaPath, fit: BoxFit.contain),
+                      Positioned.fill(
+                        child: Image.asset(_molduraPath, fit: BoxFit.cover),
                       ),
-                    ),
-                  ],
+                      Positioned(
+                        child: SizedBox(
+                          width: canvasSize * 1,
+                          height: canvasSize * 1.3,
+                          child: Image.asset(_medalhaPath, fit: BoxFit.contain),
+                        ),
+                      ),
+                    ],
+                  ),
                 ),
               ),
             ),
@@ -256,64 +218,6 @@ class _PhotoFramePageState extends State<PhotoFramePage> {
                       iconSize: 40,
                       icon: const Icon(Icons.photo),
                       onPressed: () => _pickImage(ImageSource.gallery),
-                    ),
-                  ],
-                ),
-                Row(
-                  mainAxisAlignment: MainAxisAlignment.center,
-                  children: [
-                    const Text("Controle do zoom"),
-                  ],
-                ),
-                Row(
-                  mainAxisAlignment: MainAxisAlignment.center,
-                  children: [
-                    IconButton(
-                      iconSize: 40,
-                      color: Colors.orange,
-                      icon: const Icon(Icons.zoom_in),
-                      onPressed: _increaseSelfieSize,
-                    ),
-                    IconButton(
-                      iconSize: 40,
-                      color: Colors.orange,
-                      icon: const Icon(Icons.zoom_out),
-                      onPressed: _decreaseSelfieSize,
-                    ),
-                  ],
-                ),
-                Row(
-                  mainAxisAlignment: MainAxisAlignment.center,
-                  children: [
-                    const Text("Ajuste sua foto utilizando as setas"),
-                  ],
-                ),
-                Row(
-                  mainAxisAlignment: MainAxisAlignment.center,
-                  children: [
-                    IconButton(
-                      iconSize: 40,
-                      color: Colors.orange,
-                      icon: const Icon(Icons.arrow_circle_left_outlined),
-                      onPressed: _moveSelfieLeft,
-                    ),
-                    IconButton(
-                      iconSize: 40,
-                      color: Colors.orange,
-                      icon: const Icon(Icons.arrow_circle_right_outlined),
-                      onPressed: _moveSelfieRight,
-                    ),
-                    IconButton(
-                      iconSize: 40,
-                      color: Colors.orange,
-                      icon: const Icon(Icons.arrow_circle_up_outlined),
-                      onPressed: _moveSelfieUp,
-                    ),
-                    IconButton(
-                      iconSize: 40,
-                      color: Colors.orange,
-                      icon: const Icon(Icons.arrow_circle_down_outlined),
-                      onPressed: _moveSelfieDown,
                     ),
                   ],
                 ),
