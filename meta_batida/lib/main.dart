@@ -7,22 +7,6 @@ import 'package:image_picker/image_picker.dart';
 import 'package:path_provider/path_provider.dart';
 import 'package:share_plus/share_plus.dart';
 
-void main() {
-  runApp(const PhotoFrameApp());
-}
-
-class PhotoFrameApp extends StatelessWidget {
-  const PhotoFrameApp({super.key});
-
-  @override
-  Widget build(BuildContext context) {
-    return const MaterialApp(
-      debugShowCheckedModeBanner: false,
-      home: PhotoFramePage(),
-    );
-  }
-}
-
 class PhotoFramePage extends StatefulWidget {
   const PhotoFramePage({super.key});
 
@@ -32,17 +16,31 @@ class PhotoFramePage extends StatefulWidget {
 
 class _PhotoFramePageState extends State<PhotoFramePage> {
   File? _selfieImage;
+  File? _previewImageFile;
   final ImagePicker _picker = ImagePicker();
   final GlobalKey _canvasKey = GlobalKey();
 
   final String _defaultSelfiePath = 'assets/self.jpg';
-  final String _molduraPath = 'assets/moldura.png';
-  final String _medalhaPath = 'assets/medalha20km.png';
+  final String _molduraPath = 'assets/moldura_pub_geral.png';
+  final String _medalhaPath = 'assets/medalha_jan.png';
+  final String meta = '100 km';
 
   double _offsetX = 0.0; // Posição inicial X
   double _offsetY = 0.0; // Posição inicial Y
   double _scale = 1.0; // Escala inicial
   double _previousScale = 1.0;
+
+  void _centerImage() {
+    setState(() {
+      final canvasSize = MediaQuery.of(context).size.width;
+      // Centralizar a imagem no container
+      _offsetX =
+          (canvasSize - (_selfieImage != null ? canvasSize * _scale : 0)) / 2;
+      _offsetY =
+          (canvasSize - (_selfieImage != null ? canvasSize * _scale : 0)) / 2;
+      _scale = 1.0; // Redefine a escala para o valor padrão
+    });
+  }
 
   Future<void> _pickImage(ImageSource source) async {
     final XFile? pickedFile = await _picker.pickImage(source: source);
@@ -50,29 +48,83 @@ class _PhotoFramePageState extends State<PhotoFramePage> {
       setState(() {
         _selfieImage = File(pickedFile.path);
       });
+      _centerImage(); // Centraliza a imagem carregada
     }
   }
 
-  Future<void> _shareFinalImage() async {
+  Future<void> _generateFinalImage() async {
     try {
-      // Captura o widget atual como imagem
+      // Captura o widget atual como imagem com a escala apropriada
       final RenderRepaintBoundary boundary = _canvasKey.currentContext!
           .findRenderObject() as RenderRepaintBoundary;
-      final ui.Image image = await boundary.toImage();
+
+      final double devicePixelRatio = ui.window.devicePixelRatio;
+      final ui.Image image =
+          await boundary.toImage(pixelRatio: devicePixelRatio);
+
       final ByteData? byteData =
           await image.toByteData(format: ui.ImageByteFormat.png);
-      final Uint8List pngBytes = byteData!.buffer.asUint8List();
+
+      if (byteData == null) {
+        throw Exception("Falha ao gerar byteData da imagem.");
+      }
+
+      final Uint8List pngBytes = byteData.buffer.asUint8List();
 
       // Salva a imagem capturada
       final tempDir = await getTemporaryDirectory();
       final File outputFile = File('${tempDir.path}/montagem_final.png');
       await outputFile.writeAsBytes(pngBytes);
 
-      // Compartilha a imagem gerada
-      await Share.shareXFiles([XFile(outputFile.path)],
-          text: "Confira minha montagem!");
+      setState(() {
+        _previewImageFile = outputFile;
+      });
     } catch (e) {
-      debugPrint("Erro ao compartilhar imagem: $e");
+      debugPrint("Erro ao gerar imagem final: $e");
+    }
+  }
+
+  Future<void> _shareFinalImage() async {
+    if (_previewImageFile != null) {
+      try {
+        await Share.shareXFiles([XFile(_previewImageFile!.path)],
+            text: "Confira minha montagem!");
+      } catch (e) {
+        debugPrint("Erro ao compartilhar imagem: $e");
+      }
+    } else {
+      debugPrint("Nenhuma imagem gerada para compartilhar.");
+    }
+  }
+
+  void _showPreviewDialog(BuildContext context) {
+    if (_previewImageFile != null) {
+      showDialog(
+        context: context,
+        builder: (BuildContext context) {
+          return AlertDialog(
+            title: const Text("Preview da Montagem Final"),
+            content: Image.file(_previewImageFile!),
+            actions: [
+              TextButton(
+                onPressed: () {
+                  Navigator.of(context).pop();
+                },
+                child: const Text("Fechar"),
+              ),
+              ElevatedButton(
+                onPressed: () {
+                  Navigator.of(context).pop();
+                  _shareFinalImage();
+                },
+                child: const Text("Compartilhar"),
+              ),
+            ],
+          );
+        },
+      );
+    } else {
+      debugPrint("Nenhuma imagem gerada para preview.");
     }
   }
 
@@ -97,7 +149,8 @@ class _PhotoFramePageState extends State<PhotoFramePage> {
                   },
                   onScaleUpdate: (details) {
                     setState(() {
-                      _scale = (_previousScale * details.scale).clamp(0.5, 3.0);
+                      _scale =
+                          (_previousScale * details.scale).clamp(0.025, 6.0);
                       _offsetX += details.focalPointDelta.dx;
                       _offsetY += details.focalPointDelta.dy;
                     });
@@ -130,6 +183,36 @@ class _PhotoFramePageState extends State<PhotoFramePage> {
                                 Image.asset(_medalhaPath, fit: BoxFit.contain),
                           ),
                         ),
+                        // Texto dinâmico na medalha
+                        Positioned(
+                          top: canvasSize *
+                              0.36, // Ajusta a posição vertical do texto
+                          left: canvasSize *
+                              0.0001, // Ajusta a posição horizontal do texto
+                          child: Container(
+                            width: canvasSize *
+                                0.45, // Define a largura proporcional do espaço do texto
+                            height: canvasSize *
+                                0.1, // Define a altura proporcional do espaço do texto
+                            alignment: Alignment
+                                .center, // Centraliza o texto dentro do container
+                            child: FittedBox(
+                              fit: BoxFit
+                                  .scaleDown, // Garante que o texto se ajuste ao tamanho do container
+                              child: Text(
+                                meta, // Texto dinâmico da variável meta
+                                textAlign: TextAlign.center,
+                                style: TextStyle(
+                                  fontSize:
+                                      30, // Tamanho inicial da fonte (ajustado dinamicamente pelo FittedBox)
+                                  fontWeight: FontWeight
+                                      .bold, // Negrito para destacar o texto
+                                  color: Colors.black, // Cor do texto
+                                ),
+                              ),
+                            ),
+                          ),
+                        ),
                       ],
                     ),
                   ),
@@ -144,7 +227,7 @@ class _PhotoFramePageState extends State<PhotoFramePage> {
                 Row(
                   mainAxisAlignment: MainAxisAlignment.center,
                   children: const [
-                    Text("Escolha ou tire sua Self"),
+                    Text("Tirar ou enviar foto"),
                   ],
                 ),
                 Row(
@@ -167,8 +250,11 @@ class _PhotoFramePageState extends State<PhotoFramePage> {
                 Padding(
                   padding: const EdgeInsets.all(8.0),
                   child: ElevatedButton(
-                    onPressed: _shareFinalImage,
-                    child: const Text("Compartilhar Imagem"),
+                    onPressed: () async {
+                      await _generateFinalImage();
+                      _showPreviewDialog(context);
+                    },
+                    child: const Text("Gerar e Compartilhar"),
                   ),
                 ),
               ],

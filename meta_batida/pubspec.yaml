@@ -29,5 +29,5 @@ flutter:
   # Adicione os caminhos dos assets necessários
   assets:
     - assets/self.jpg
-    - assets/moldura.png
-    - assets/medalha20km.png
+    - assets/moldura_pub_geral.png
+    - assets/medalha_jan.png
